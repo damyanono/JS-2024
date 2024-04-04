@@ -1,0 +1,12 @@
+{
+  "name": "test-modules",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "just for JS tests",
+  "main": "index.js",
+  "scripts": {
+    "test": "test"
+  },
+  "author": "DNN",
+  "license": "ISC"
+}
