@@ -1,0 +1,45 @@
+version: "3.6"
+services:
+  results-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: "results-app-image"
+    container_name: "results-app-container"
+    ports:
+      - 3000:3000
+    volumes:
+      - ./:/test-resulst-app
+      - /test-resulst-app/node_modules
+    networks:
+      - test-results-network
+    env_file:
+      - .env
+    environment:
+      MONGO_ADMINUSERNAME: ${MONGO_USERNAME}
+      MONGO_ADMINPASSWORD: ${MONGO_PASSWORD}
+      MONGODB_URL: ${MONGODB_URL}
+    depends_on:
+      - mongodb
+  mongodb:
+    build:
+      context: ./mongo-entrypoint
+      dockerfile: Dockerfile
+    image: "results-mongo-image"
+    container_name: "results-mongo-container"
+    ports:
+      - 27017:27017
+    volumes:
+      - comments-db:/data/db
+    networks:
+      - test-results-network
+    env_file:
+      - .env
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ADMINUSERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ADMINPASSWORD}
+networks:
+  test-results-network:
+    name: test-results-network
+volumes:
+  comments-db:
