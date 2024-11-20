@@ -1,0 +1,13 @@
+PORT=3000
+ 
+# DB PROPERTIES
+DB_NAME=test-results
+MONGODB_URL=mongodb://testresultsdbuser:gOBt8rIOuJWL@mongodb:27017/test-results?authSource=test-results
+# MONGODB_URL=mongodb://mongodb/comments
+# MONGODB_URL=mongodb://aUser:aPassword@mevn-app-mongo:27017/myDb?authSource=admin
+ 
+# MONGO CREDENTIALS
+MONGO_ADMINUSERNAME=mongoAdminUsr
+MONGO_ADMINPASSWORD=bWj8Y2*tT8<JBpZf
+MONGO_USERNAME=testresultsdbuser
+MONGO_PASSWORD=gOBt8rIOuJWL
