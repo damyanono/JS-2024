@@ -1,0 +1,70 @@
+# Schedules daily run
+schedules:
+  - cron: '0 3 * * *'
+    displayName: 'Daily morning run'
+    branches:
+      include:
+        - main
+    always: true
+
+trigger:
+- main
+
+#Uses variable group that contains runtime vars
+variables:
+- group: QA-Automated-Testing
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+- checkout: self
+
+#Downloads the .env file containing user information
+- task: DownloadSecureFile@1
+  name: env
+  inputs:
+    secureFile: '.env'
+  displayName: 'Get env'
+
+#Copies the .env file to the build dir
+- script: |
+    mv "$(env.secureFilePath)" "$(Build.SourcesDirectory)/"
+  displayName: 'Move Secure File'
+
+#Installs NodeJS
+- task: NodeTool@0
+  inputs:
+    versionSpec: '16.x'
+  displayName: 'Install Node.js'
+
+- script: |
+    npm install
+  workingDirectory: $(Build.SourcesDirectory)
+  displayName: 'npm install'
+
+#Installs browser required for running of the tests
+- script: |
+    npx playwright install --with-deps
+  displayName: 'Install Playwright Browsers'
+
+#Runs the tests
+- script: |
+    npx playwright test
+  workingDirectory: $(Build.SourcesDirectory)
+  displayName: 'Run tests'
+
+#Published results
+- task: PublishTestResults@2
+  inputs:
+    testResultsFormat: 'JUnit'
+    testResultsFiles: '**/junit-results/*.xml'
+    searchFolder: '$(Build.SourcesDirectory)'
+  displayName: 'Publish Test Results'
+  condition: succeededOrFailed()
+
+#Triggers Logic App in Azure that sends and email with the results
+- script: |
+    curl -X POST -H "Content-Type: application/json" -d "{\"subject\": \"Azure DevOps Pipeline Notification\", \"message\": \"The pipeline has completed. View the results: https://dev.azure.com/linkmobilitygroup/Xenioo/_build/results?buildId=$(Build.BuildId)\"}" "$(LOGIC_APP_URL)"
+  displayName: 'Notify via Logic App'
+  condition: succeededOrFailed()
