@@ -1,0 +1,226 @@
+# Schedules run for all jobs
+schedules:
+  - cron: '30 4 * * *'
+    displayName: 'Daily morning run'
+    branches:
+      include:
+        - main
+    always: true
+
+trigger:
+  - main
+
+#Uses variable group that contains runtime vars
+variables:
+- group: QA-Variables
+
+pool:
+  vmImage: ubuntu-latest
+
+# All jobs
+jobs:
+
+# Run tests - Cloud - Staging
+- job: "run_tests_smoke_cloud_staging"
+  displayName: "Run Test smoke suite on Cloud - Staging"
+  steps:
+    - checkout: self
+
+    #Downloads the .env file containing user information
+    - task: DownloadSecureFile@1
+      name: env
+      inputs:
+        secureFile: '.env'
+      displayName: 'Get dotenv file'
+
+    #Copies the .env file to the build dir
+    - script: |
+        mv "$(env.secureFilePath)" "$(Build.SourcesDirectory)/"
+      displayName: 'Move secure file to build directory'
+    
+    #Installs NodeJS
+    - task: NodeTool@0
+      inputs:
+        versionSpec: "16.x"
+      displayName: "Install Node.js"
+    
+    #Installs dependencies
+    - script: |
+        npm install
+      workingDirectory: $(Build.SourcesDirectory)
+      displayName: "npm install"
+
+    # Run tests
+    - script: |
+        npm run smoke-cloud
+      workingDirectory: $(Build.SourcesDirectory)
+      displayName: "Run tests - Smoke cloud - Staging"
+
+    # Publish results - JUnit Reporter
+    - task: PublishTestResults@2
+      inputs:
+        testResultsFormat: "JUnit"
+        testResultsFiles: "**/junit-results/junit-results-smoke-cloud/*.xml"
+        searchFolder: "$(Build.SourcesDirectory)"
+      displayName: "Publish Test Results - Smoke cloud - Staging"
+      condition: succeededOrFailed()
+
+# Run tests - On prem - Staging
+- job: "run_tests_smoke_onprem_staging"
+  displayName: "Run Test smoke suite on Prem - Staging"
+  condition: always()
+  dependsOn: 
+    - run_tests_smoke_cloud_staging
+  steps:
+    - checkout: self
+
+    #Downloads the .env file containing user information
+    - task: DownloadSecureFile@1
+      name: env
+      inputs:
+        secureFile: '.env'
+      displayName: 'Get dotenv file'
+
+    #Copies the .env file to the build dir
+    - script: |
+        mv "$(env.secureFilePath)" "$(Build.SourcesDirectory)/"
+      displayName: 'Move secure file to build directory'
+    
+    #Installs NodeJS
+    - task: NodeTool@0
+      inputs:
+        versionSpec: "16.x"
+      displayName: "Install Node.js"
+    
+    #Installs dependencies
+    - script: |
+        npm install
+      workingDirectory: $(Build.SourcesDirectory)
+      displayName: "npm install"
+
+    # Run tests
+    - script: |
+        npm run smoke-onPrem
+      workingDirectory: $(Build.SourcesDirectory)
+      displayName: "Run tests - Smoke - On prem - Staging"
+      condition: succeededOrFailed()
+
+    # Publish results - JUnit Reporter
+    - task: PublishTestResults@2
+      inputs:
+        testResultsFormat: "JUnit"
+        testResultsFiles: "**/junit-results/junit-results-smoke-onPrem/*.xml"
+        searchFolder: "$(Build.SourcesDirectory)"
+      displayName: "Publish Test Results - Smoke - On prem - Staging"
+      condition: succeededOrFailed()
+
+# Run tests - Cloud - Staging
+- job: "run_tests_smoke_cloud_prod"
+  displayName: "Run Test smoke suite on Cloud - PROD"
+  condition: always()
+  dependsOn: 
+    - run_tests_smoke_onprem_staging
+  steps:
+    - checkout: self
+
+    #Downloads the .env file containing user information
+    - task: DownloadSecureFile@1
+      name: env
+      inputs:
+        secureFile: '.env'
+      displayName: 'Get dotenv file'
+
+    #Copies the .env file to the build dir
+    - script: |
+        mv "$(env.secureFilePath)" "$(Build.SourcesDirectory)/"
+      displayName: 'Move secure file to build directory'
+    
+    #Installs NodeJS
+    - task: NodeTool@0
+      inputs:
+        versionSpec: "16.x"
+      displayName: "Install Node.js"
+    
+    #Installs dependencies
+    - script: |
+        npm install
+      workingDirectory: $(Build.SourcesDirectory)
+      displayName: "npm install"
+
+    # Run tests
+    - script: |
+        npm run smoke-cloudProd
+      workingDirectory: $(Build.SourcesDirectory)
+      displayName: "Run tests - Smoke - Cloud PROD"
+      condition: succeededOrFailed()
+
+    #Publish results - Smoke - Cloud PROD - JUnit Reporter
+    - task: PublishTestResults@2
+      inputs:
+        testResultsFormat: "JUnit"
+        testResultsFiles: "**/junit-results/junit-results-smoke-cloudProd/*.xml"
+        searchFolder: "$(Build.SourcesDirectory)"
+      displayName: "Publish Test Results - Smoke - Cloud PROD"
+      condition: succeededOrFailed()
+
+# Run tests - On prem - PROD
+- job: "run_tests_smoke_onprem_prod"
+  displayName: "Run Test smoke suite on Prem - PROD"
+  condition: always()
+  dependsOn: 
+    - run_tests_smoke_cloud_prod
+  steps:
+    - checkout: self
+
+    #Downloads the .env file containing user information
+    - task: DownloadSecureFile@1
+      name: env
+      inputs:
+        secureFile: '.env'
+      displayName: 'Get dotenv file'
+
+    #Copies the .env file to the build dir
+    - script: |
+        mv "$(env.secureFilePath)" "$(Build.SourcesDirectory)/"
+      displayName: 'Move secure file to build directory'
+    
+    #Installs NodeJS
+    - task: NodeTool@0
+      inputs:
+        versionSpec: "16.x"
+      displayName: "Install Node.js"
+    
+    #Installs dependencies
+    - script: |
+        npm install
+      workingDirectory: $(Build.SourcesDirectory)
+      displayName: "npm install"
+
+    # Run tests
+    - script: |
+        npm run smoke-onPremProd
+      workingDirectory: $(Build.SourcesDirectory)
+      displayName: "Run tests - Smoke - On prem PROD"
+      condition: succeededOrFailed()
+
+    #Publish results - Smoke - On prem PROD - JUnit Reporter
+    - task: PublishTestResults@2
+      inputs:
+        testResultsFormat: "JUnit"
+        testResultsFiles: "**/junit-results/junit-results-smoke-onPremProd/*.xml"
+        searchFolder: "$(Build.SourcesDirectory)"
+      displayName: "Publish Test Results - Smoke - On prem PROD"
+      condition: succeededOrFailed()
+
+# Send email with test results
+- job: "send_email"
+  displayName: "Send email with test results"
+  condition: always()
+  dependsOn:
+    - run_tests_smoke_onprem_prod
+  steps:
+    #Triggers Logic App in Azure that sends and email with the results
+    - script: |
+        curl -X POST -H "Content-Type: application/json" -d "{\"subject\": \"LMCL Automation Tests Report\", \"message\": \"LMCL automation test run has completed. View the results: https://dev.azure.com/linkmobilitygroup/LMCL-API-Automation/_build/results?buildId=$(Build.BuildId)&view=ms.vss-test-web.build-test-results-tab\"}" "$(LMCL_LOGIC_APP_URL)"
+      displayName: 'Send Email via Logic App'
+      condition: always()
