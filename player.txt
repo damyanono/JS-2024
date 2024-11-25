@@ -1,0 +1,182 @@
+Tech Stack
+Playwright (with JS): Installation | Playwright 
+Playwright Test Runner: Playwright Test | Playwright 
+Playwright Assertions: Assertions | Playwright 
+TypeScript: Documentation - TypeScript for JavaScript Programmers 
+Playwright with TS: TypeScript | Playwright 
+Allure Reporter: Introduction 
+Open Screenshot 2024-03-11 at 18.13.28.png
+Screenshot 2024-03-11 at 18.13.28.png
+CI/CD Integration
+A pipeline in Azure is configured and runs:
+On daily basis - every morning at 3 AM via cron job, configured in the azure-pipelines.yml file (“The default time zone used with the CRON expressions is Coordinated Universal Time (UTC).”)
+Every time a branch is successfully merged into 'main' branch
+The whole pipeline configuration could be found in azure-pipelines.yml in the root directory of the project.
+Open Screenshot 2024-07-05 at 17.45.47.png
+Screenshot 2024-07-05 at 17.45.47.png
+Secrets
+The .env file, where all secrets should be stored is called in the pipeline using secureFile.
+All secure files could be found under Pipelines/Library/Secure Files (https://dev.azure.com/linkmobilitygroup/Xenioo/_library?itemType=SecureFiles).
+Open Screenshot 2024-07-05 at 17.55.50.png
+Screenshot 2024-07-05 at 17.55.50.png
+Reporting
+JUnit test reporter is used to visualise test results in Azure.
+First we set the test reporters in playwright.config.ts file:
+
+
+
+/* Reporter to use. See https://playwright.dev/docs/test-reporters */
+reporter: [
+	['allure-playwright'],
+	['junit', { outputFile: 'junit-results/results.xml' }]
+],
+We set it in the pipeline configuration as well:
+Open Screenshot 2024-07-05 at 18.07.43.png
+Screenshot 2024-07-05 at 18.07.43.png
+Tests results could be found inside each pipeline run - in the 'Tests' section: 
+Open Screenshot 2024-07-05 at 18.05.11.png
+Screenshot 2024-07-05 at 18.05.11.png
+Tests analytics could be found here: https://dev.azure.com/linkmobilitygroup/Xenioo/_test/analytics?definitionId=434&contextType=build
+TBD: We have the option to use Allure Reporter as well (Azure DevOps integration ). After this plugin is installed, it could be easily configured - https://marketplace.visualstudio.com/items?itemName=qameta.allure-azure-pipelines
+Send mail
+We use Logic App service of Azure to send email with link to the pipeline run tests results (after each pipeline run). This is configured in azure-pipelines.yml:
+Open Screenshot 2024-07-05 at 18.14.30.png
+Screenshot 2024-07-05 at 18.14.30.png
+For Logic App configuration refer to @Krum Gruev 
+Execution
+Currently all test are executed sequentially. Each test suite could be executed in parallel to reduce execution time. A separate Xenioo account would be needed in order for this to work. Also: Remove/comment workers: 1 in playwright.config.js.
+Open Screenshot at Mar 11 18-31-01.png
+Screenshot at Mar 11 18-31-01.png
+
+
+
+To run all tests: npx playwright test
+Run all tests in debug mode: npx playwright test --debug
+Run all tests in ui mode: npx playwright test --ui
+Project Structure
+All dependencies could be found in package.json file in the root directory.
+All Playwright configuration options (Test configuration | Playwright ) could be found in playwright.config.ts file. 
+Key configurations:
+
+
+playwright.config.ts
+All credentials are stored in .env file, which should NOT be pushed to the repo (.env is included in .gitignore file). All constants in .env are accessed with 'process.env' in the code.
+.gitignore file:
+Open Screenshot 2024-03-12 at 12.09.33.png
+Screenshot 2024-03-12 at 12.09.33.png
+Global setup/teardown
+Global setup and teardown | Playwright 
+globalSetup() and globalTeardown() functions are added in in separate files in the root directory of the project. They should be added as config options in playwright.config.ts file. They are executed before all tests have started and after all tests have finished.
+Open Screenshot at Mar 12 12-24-12.png
+Screenshot at Mar 12 12-24-12.png
+We use those global to clear Allure results from previous run, kill old Allure process, send mail, generate new Allure report.
+Note: in the current CI implementation in Azure we use JUnit reporter and the global setup/teardown hooks are not necessary, but could be used in the future for another functionalities like clearing test data, etc.
+Test files
+Writing tests | Playwright 
+All test are under /tests directory, they are separated into sub-folders, which correspond to separate page. Separate file is used for positive and negative tests. Each file contains only one test suite (test.describe), which has multiple tests inside. If there’s test.beforeEach or test.afterEach methods, they are situated at the top of the describe block.
+Open Screenshot at Mar 12 12-30-19.png
+Screenshot at Mar 12 12-30-19.png
+Pages
+Page object models | Playwright 
+We use Page Object Model in order to separate each page into Class. We use Pages for whole page abstraction and Fragments for page components like navigation, footer, dialogs, etc. All pages are under /pages directory, they are separated into sub-folders, which correspond to separate page.
+Open Screenshot at Mar 12 12-49-33.png
+Screenshot at Mar 12 12-49-33.png
+Abstract Base class is used to store methods, that are used in all pages like getBaseURL, goto, getPageUrl, etc. This class is inherited from all Page classes (and is NOT inherited from Fragment classes) and should contain only methods that are common to ALL page classes. 
+If you need to pass methods only to some classes use composition instead!
+Fragments
+We use page Fragments to abstract page components like header, navigation, footer, dialogs, etc. All locators and methods used to manipulate these components are inside the class.
+When a page component/fragment (like modal, sidebar, toolbar) is part of more than 1 page and should be abstracted in its own separate class (but is always part of another page), we use ‘Dependency Inversion' to add the page fragment interface to the ‘parent’ class and use/call the fragment’s methods inside the page class.
+The methods of these 'shared' components could be used inside Page classes via dependency inversion: 
+Export interface with all method declarations. The fragment class should implement the interface:
+Open Screenshot at Mar 12 15-37-25.png
+Screenshot at Mar 12 15-37-25.png
+Import the interface inside the Page class and pass it as type of the constructor parameter:
+Open Screenshot at Mar 12 15-40-39.png
+Screenshot at Mar 12 15-40-39.png
+Inside the POM Fixture - pass the new instance of the fragment to the Page class:
+Open Screenshot at Mar 12 15-44-08.png
+Screenshot at Mar 12 15-44-08.png
+All page fragments that are used inside page classes:
+'BotBuilderSidebar'
+'BotDialog'
+'ToolbarBotBuilder'
+'PublishDialog'
+'WebChannel'
+'BroadcastBotBuilderSidebar'
+'BroadcastBotDialog'
+Fixtures
+Fixtures | Playwright 
+“Playwright Test is based on the concept of test fixtures. Test fixtures are used to establish the environment for each test, giving the test everything it needs and nothing else. Test fixtures are isolated between tests. With fixtures, you can group tests based on their meaning, instead of their common setup.“
+All Page classes and some page Fragments (which are not used inside other pages) should be added as fixtures in /lib/fixtures/pomFixtures.ts file. 
+Open Screenshot at Mar 12 15-51-31.png
+Screenshot at Mar 12 15-51-31.png
+After that a new instance of the class is easily used inside the test simply by adding it as callback function parameter:
+Open Screenshot at Mar 12 15-56-41.png
+Screenshot at Mar 12 15-56-41.png
+Note: Some main fragments like MainHeader, MainNavigation, MainSideNavigation does not implement interfaces and are used directly in the tests as fixtures. 
+Others like BotDialog, PublishDialog, BotBuilderSidebar, ToolbarBotBuilder are parts of other pages and and are called form within the 'parent' page.
+Custom Assertions/Matchers
+Assertions | Playwright  
+We can add our own custom assertions using fixtures and extending the Playwright baseExpect:
+Open Screenshot at Mar 12 16-06-14.png
+Screenshot at Mar 12 16-06-14.png
+We took the approach of abstracting away the more complex assertions for a page in a custom method inside the page Class itself. For example:
+
+
+
+await CreateNewBotPage.verifyToastMessageDisplayed(' Bot published succesfully. ');
+await CreateNewBotPage.verifyBotStatusOnChannelIs('WebChannel','ONLINE');
+For simple assertions we put them inside the test itself:
+
+
+tests/authentication/01_login_positive_test.spec.ts
+Login once per worker
+Authentication: Authentication | Playwright  
+We use Worker scoped fixtures to authenticate once per worker: Fixtures | Playwright  
+
+
+/lib/fixtures/pomFixtures.ts:
+TODO: Research the option to authenticate via API call (AP-100: [XEN][Smoke] Make before, after and login actions with API calls.
+TO DO
+).
+Playwright best practices
+Best Practices | Playwright 
+Assertions | Playwright 
+Key concepts
+Open playwright-01.png
+playwright-01.png
+Auto waiting
+Auto-waiting | Playwright 
+Playwright performs a range of actionability checks on the elements before making actions to ensure these actions behave as expected. It auto-waits for all the relevant checks to pass and only then performs the requested action. If the required checks do not pass within the given timeout, action fails with the TimeoutError.
+Auto-retrying assertions
+Assertions | Playwright 
+The following assertions will retry until the assertion passes, or the assertion timeout is reached. Note that retrying assertions are async, so you must await them.
+Parallelism
+Parallelism | Playwright 
+Worker processes: Parallelism | Playwright  
+All tests run in worker processes. These processes are OS processes, running independently, orchestrated by the test runner. All workers have identical environments and each starts its own browser.
+You can't communicate between the workers. Playwright Test reuses a single worker as much as it can to make testing faster, so multiple test files are usually run in a single worker one after another.
+Test Isolation
+Isolation | Playwright 
+Tests written with Playwright execute in isolated clean-slate environments called browser contexts.
+Every test runs independently from any other test. This means that each test has its own local storage, session storage, cookies etc. Playwright achieves this using BrowserContexts which are equivalent to incognito-like profiles. They are fast and cheap to create and are completely isolated, even when running in a single browser. Playwright creates a context for each test, and provides a default Page in that context.
+When using Playwright as a Test Runner, browser contexts are created by default. Otherwise, you can create browser contexts manually. (https://playwright.dev/docs/api/class-browsercontext )
+Pages
+Pages | Playwright 
+Each BrowserContext can have multiple pages. A Page refers to a single tab or a popup window within a browser context. It should be used to navigate to URLs and interact with the page content.
+Playwright vs Selenium
+13 Key Differences Between Playwright vs. Selenium Frameworks 
+Playwright vs Selenium: key differences in 2024 | DECODE 
+
+
+Key points:
+
+Playwright's execution speed is faster than Selenium's. Architecture: Playwright uses a WebSocket connection rather than the WebDriver API and HTTP. This stays open for the duration of the test, so everything is sent on one connection. This is one reason why Playwright’s execution speeds tend to be faster. 
+Playwright’s script execution is quicker than Selenium’s. Playwright communicates all requests through a single web socket connection. What it means is once the tests are invoked, the code is automatically converted into JSON format and will be transferred to the server using the web socket protocol. This connection stays in place until the test execution is completed. Thereby reducing the points of failure and increasing performance.
+Playwright comes with a built-in auto-wait strategy. It performs a range of actionability checks on the elements before making actions to ensure these actions behave as expected. It auto-waits for all the relevant checks to pass and only then performs the requested action.
+Playwright and Selenium both support parallel test execution. With Playwright, it comes out of the box. With Playwright, you can have test scenarios that span multiple tabs, multiple origins, and multiple users. You can also create scenarios with different contexts for different users and run them against your server, all in one test.
+Playwright comes with its own powerful playwright runner. You can also use third-party test runners such as Jest-playwright (playwright jest), AVA, Mocha, etc.
+Powerful built-in tools: Playwright Inspector (for easy debugging), Test Generator (for recording and generating tests) and Trace Viewer (for visually explore tests’ traces).
+It supports all modern rendering engines including Chromium, WebKit and Firefox.
+Playwright can be used on Windows, Linux, macOS or CI.
+It supports TypeScript, JavaScript (NodeJS), Python, .NET and Java.
